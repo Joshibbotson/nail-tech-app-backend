@@ -1,0 +1,36 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: nailtech-mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    command: mongod --replSet rs0
+    restart: unless-stopped
+
+  mongo-init:
+    image: mongo:7
+    container_name: nailtech-mongo-init
+    depends_on:
+      - mongodb
+    restart: 'no'
+    entrypoint: >
+      mongosh --host mongodb --eval "
+        try { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }); }
+        catch(e) { if (e.codeName !== 'AlreadyInitialized') throw e; }
+      "
+
+  redis:
+    image: redis:7-alpine
+    container_name: nailtech-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  redis_data:
