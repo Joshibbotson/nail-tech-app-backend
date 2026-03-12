@@ -48,74 +48,20 @@ export class EnhancementService {
     // 2. Calculate token cost
     const tokenCost = dto.resolution === 'hd' ? 2 : 1;
 
-    // 3. Debit tokens (atomic — throws if insufficient)
-    // We create the enhancement record first so we can link the transaction
+    // 3. Generate a signed URL so fal.ai can download the original image
+    const originalSignedUrl = await this.storageService.getSignedReadUrl(
+      dto.imageKey,
+    );
+
+    // 4. Create enhancement record
     const enhancement = new this.enhancementModel({
       deviceId: new Types.ObjectId(deviceId),
       status: EnhancementStatus.PENDING,
       styleId: dto.styleId,
       resolution: dto.resolution,
       tokensCharged: tokenCost,
-      originalImageUrl: this.storageService.getPublicUrl(dto.imageKey),
-      prompt: style.buildPrompt(),
-    });
-
-    await enhancement.save();
-
-    try {
-      await this.tokenService.debit(
-        deviceId,
-        tokenCost,
-        TransactionContext.ENHANCEMENT,
-        enhancement._id.toString(),
-      );
-    } catch (error) {
-      // Debit failed — clean up the enhancement record
-      await this.enhancementModel.findByIdAndDelete(enhancement._id);
-      throw error;
-    }
-
-    // 4. Dispatch to BullMQ for async processing
-    const jobData: EnhancementJobData = {
-      enhancementId: enhancement._id.toString(),
-      originalImageUrl: enhancement.originalImageUrl,
-      prompt: enhancement.prompt!,
-      deviceUUID,
-    };
-
-    await this.enhancementQueue.add('process', jobData, {
-      attempts: 2,
-      backoff: { type: 'exponential', delay: 5000 },
-    });
-
-    return enhancement;
-  }
-
-  /**
-   * Test-only: create an enhancement using a direct public image URL
-   * instead of an R2 presigned upload. Remove before shipping.
-   */
-  async createWithUrl(
-    deviceId: string,
-    deviceUUID: string,
-    styleId: string,
-    resolution: 'standard' | 'hd',
-    imageUrl: string,
-  ) {
-    const style = this.styleService.findById(styleId);
-    if (!style) {
-      throw new BadRequestException(`Unknown style: ${styleId}`);
-    }
-
-    const tokenCost = resolution === 'hd' ? 2 : 1;
-
-    const enhancement = new this.enhancementModel({
-      deviceId: new Types.ObjectId(deviceId),
-      status: EnhancementStatus.PENDING,
-      styleId,
-      resolution,
-      tokensCharged: tokenCost,
-      originalImageUrl: imageUrl,
+      originalImageUrl: originalSignedUrl,
+      originalImageKey: dto.imageKey,
       prompt: style.buildPrompt(),
     });
 
@@ -133,9 +79,10 @@ export class EnhancementService {
       throw error;
     }
 
+    // 5. Dispatch to BullMQ — pass the signed URL so the processor can give it to fal.ai
     const jobData: EnhancementJobData = {
       enhancementId: enhancement._id.toString(),
-      originalImageUrl: imageUrl,
+      originalImageUrl: originalSignedUrl,
       prompt: enhancement.prompt!,
       deviceUUID,
     };
@@ -148,20 +95,19 @@ export class EnhancementService {
     return enhancement;
   }
 
-  async findById(
-    enhancementId: string,
-    deviceId: string,
-  ): Promise<EnhancementDocument> {
-    const enhancement = await this.enhancementModel.findOne({
-      _id: enhancementId,
-      deviceId: new Types.ObjectId(deviceId),
-    });
+  async findById(enhancementId: string, deviceId: string) {
+    const enhancement = await this.enhancementModel
+      .findOne({
+        _id: enhancementId,
+        deviceId: new Types.ObjectId(deviceId),
+      })
+      .lean();
 
     if (!enhancement) {
       throw new NotFoundException('Enhancement not found');
     }
 
-    return enhancement;
+    return this.hydrateUrls(enhancement);
   }
 
   async findAll(deviceId: string, page = 1, limit = 20) {
@@ -179,8 +125,12 @@ export class EnhancementService {
       }),
     ]);
 
+    const items = await Promise.all(
+      enhancements.map((e) => this.hydrateUrls(e)),
+    );
+
     return {
-      items: enhancements,
+      items,
       total,
       page,
       pages: Math.ceil(total / limit),
@@ -188,28 +138,47 @@ export class EnhancementService {
   }
 
   async delete(enhancementId: string, deviceId: string): Promise<void> {
-    const enhancement = await this.findById(enhancementId, deviceId);
+    const enhancement = await this.enhancementModel
+      .findOne({
+        _id: enhancementId,
+        deviceId: new Types.ObjectId(deviceId),
+      })
+      .lean();
 
-    // Delete images from R2
-    if (enhancement.originalImageUrl) {
-      const originalKey = this.extractKeyFromUrl(enhancement.originalImageUrl);
-      if (originalKey) await this.storageService.deleteImage(originalKey);
+    if (!enhancement) {
+      throw new NotFoundException('Enhancement not found');
     }
 
-    if (enhancement.enhancedImageUrl) {
-      const enhancedKey = this.extractKeyFromUrl(enhancement.enhancedImageUrl);
-      if (enhancedKey) await this.storageService.deleteImage(enhancedKey);
+    // Delete images from S3 using stored keys
+    if (enhancement.originalImageKey) {
+      await this.storageService.deleteImage(enhancement.originalImageKey);
+    }
+    if (enhancement.enhancedImageKey) {
+      await this.storageService.deleteImage(enhancement.enhancedImageKey);
     }
 
     await this.enhancementModel.findByIdAndDelete(enhancementId);
   }
 
-  private extractKeyFromUrl(url: string): string | null {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.pathname.slice(1); // Remove leading /
-    } catch {
-      return null;
+  /**
+   * Generate fresh signed URLs for any S3 keys stored on the enhancement.
+   * Falls back to the stored URL if no key exists (for older records / test endpoint).
+   */
+  private async hydrateUrls(enhancement: Record<string, any>) {
+    const result = { ...enhancement };
+
+    if (enhancement.originalImageKey) {
+      result.originalImageUrl = await this.storageService.getSignedReadUrl(
+        enhancement.originalImageKey,
+      );
     }
+
+    if (enhancement.enhancedImageKey) {
+      result.enhancedImageUrl = await this.storageService.getSignedReadUrl(
+        enhancement.enhancedImageKey,
+      );
+    }
+
+    return result;
   }
 }

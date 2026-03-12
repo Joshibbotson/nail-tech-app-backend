@@ -37,7 +37,13 @@ export class Enhancement {
   originalImageUrl: string;
 
   @Prop({ type: String, default: null })
+  originalImageKey: string | null;
+
+  @Prop({ type: String, default: null })
   enhancedImageUrl: string | null;
+
+  @Prop({ type: String, default: null })
+  enhancedImageKey: string | null;
 
   @Prop({ type: String, default: null })
   prompt: string | null;

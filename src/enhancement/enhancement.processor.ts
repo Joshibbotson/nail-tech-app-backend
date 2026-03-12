@@ -85,15 +85,11 @@ export class EnhancementProcessor extends WorkerHost {
         contentType,
       );
 
-      // Generate a signed read URL (or public URL if bucket is public)
-      const enhancedImageUrl =
-        await this.storageService.getSignedReadUrl(permanentKey);
-
       const processingTimeMs = Date.now() - startTime;
 
       await this.enhancementModel.findByIdAndUpdate(enhancementId, {
         status: EnhancementStatus.COMPLETED,
-        enhancedImageUrl,
+        enhancedImageKey: permanentKey,
         falRequestId: result.requestId,
         processingTimeMs,
         completedAt: new Date(),

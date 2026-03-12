@@ -44,34 +44,6 @@ export class EnhancementController {
     };
   }
 
-  /**
-   * Test-only: trigger an enhancement with a direct image URL.
-   * Bypasses R2 upload. Remove before shipping.
-   */
-  @Post('test')
-  async createTest(
-    @CurrentDevice() device: DeviceDocument,
-    @Body()
-    body: { styleId: string; resolution: 'standard' | 'hd'; imageUrl: string },
-  ) {
-    const enhancement = await this.enhancementService.createWithUrl(
-      device._id.toString(),
-      device.deviceUUID,
-      body.styleId,
-      body.resolution,
-      body.imageUrl,
-    );
-
-    return {
-      id: enhancement._id,
-      status: enhancement.status,
-      styleId: enhancement.styleId,
-      resolution: enhancement.resolution,
-      tokensCharged: enhancement.tokensCharged,
-      createdAt: enhancement.createdAt,
-    };
-  }
-
   @Get(':id')
   async findOne(
     @Param('id') id: string,
@@ -86,7 +58,6 @@ export class EnhancementController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
-    console.log('device:', device);
     return this.enhancementService.findAll(device._id.toString(), page, limit);
   }
 

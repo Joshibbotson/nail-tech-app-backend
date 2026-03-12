@@ -17,12 +17,12 @@ export class DeviceService {
     });
 
     if (existing) {
-      throw new ConflictException('Device already registered');
+      return existing;
     }
 
     const device = new this.deviceModel({
       deviceUUID: dto.deviceUUID,
-      tokenBalance: 10, // Free tokens on registration
+      tokenBalance: 10,
     });
 
     return device.save();

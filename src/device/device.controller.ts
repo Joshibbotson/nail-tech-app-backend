@@ -10,6 +10,7 @@ export class DeviceController {
 
   @Post('register')
   async register(@Body() dto: RegisterDeviceDto) {
+    console.log('register:', dto);
     const device = await this.deviceService.register(dto);
     return {
       id: device._id,
