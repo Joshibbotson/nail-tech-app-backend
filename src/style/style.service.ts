@@ -14,8 +14,10 @@ export interface StylePreset {
 const BASE_PROMPT =
   'Enhance this nail salon photograph for Instagram. ' +
   //   'Smooth the skin subtly and naturally. ' +
-  'Do not alter the physical properties of the hands at all.';
-'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
+  'Do not alter the physical properties of the hands at all.' +
+  'Do not cut off any human body parts or clothes' +
+  'Do not alter jewellery or watches' +
+  'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
   'Soft bokeh background. Professional beauty photography.';
 
 /**
