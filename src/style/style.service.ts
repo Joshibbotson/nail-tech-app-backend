@@ -17,6 +17,7 @@ const BASE_PROMPT =
   'Do not alter the physical properties of the hands at all.' +
   'Do not cut off any human body parts or clothes' +
   'Do not alter jewellery or watches' +
+  'Do not create new body parts of extends arms or the body' +
   'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
   'Soft bokeh background. Professional beauty photography.';
 
