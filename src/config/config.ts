@@ -12,6 +12,7 @@ export const mongoConfig = registerAs('mongo', () => ({
 export const redisConfig = registerAs('redis', () => ({
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
+  password: process.env.REDIS_PASSWORD || undefined,
 }));
 
 export const s3Config = registerAs('s3', () => ({

@@ -11,9 +11,9 @@ import {
   appConfig,
   mongoConfig,
   redisConfig,
+  s3Config,
   falConfig,
   revenueCatConfig,
-  s3Config,
 } from './config/config';
 import { DeviceModule } from './device/device.module';
 import { TokenModule } from './token/token.module';
@@ -51,6 +51,7 @@ import { DeviceMiddleware } from './common/Device.middleware';
         connection: {
           host: config.get<string>('redis.host'),
           port: config.get<number>('redis.port'),
+          password: config.get<string>('redis.password'),
         },
       }),
     }),
