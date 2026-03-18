@@ -14,6 +14,8 @@ import { EnhancementJobData } from './enhancement.types';
 import {
   NailAnalysis,
   ANALYSIS_PROMPT,
+  STYLE_SCENE_OVERRIDES,
+  buildModifiedJson,
   buildEnhancementPrompt,
   buildCustomBackgroundPrompt,
 } from './nail-analysis';
@@ -36,12 +38,15 @@ export class EnhancementProcessor extends WorkerHost {
       enhancementId,
       originalImageUrl,
       backgroundImageUrl,
+      styleId,
       prompt,
       deviceUUID,
     } = job.data;
     const startTime = Date.now();
 
-    this.logger.log(`Processing enhancement ${enhancementId}`);
+    this.logger.log(
+      `Processing enhancement ${enhancementId} (style: ${styleId})`,
+    );
 
     await this.enhancementModel.findByIdAndUpdate(enhancementId, {
       status: EnhancementStatus.PROCESSING,
@@ -49,21 +54,18 @@ export class EnhancementProcessor extends WorkerHost {
 
     try {
       // ═══════════════════════════════════════════════════════════
-      // PASS 1: Analyse the nail photo using Gemini Flash (vision → JSON)
+      // PASS 1: Describe the image as JSON (OpenAI GPT-4o-mini)
       // ═══════════════════════════════════════════════════════════
 
-      this.logger.log(
-        `Pass 1: Analysing nail photo with Gemini for ${enhancementId}`,
-      );
+      this.logger.log(`Pass 1: Analysing photo for ${enhancementId}`);
 
       let analysis: NailAnalysis | null = null;
 
       try {
-        analysis = await this.analyseWithGemini(originalImageUrl);
-        this.logger.log(
-          `Pass 1 complete: ${analysis.nails.count} nails, ${analysis.nails.shape}, ` +
-            `${analysis.nails.colour}, art: ${analysis.nails.art}`,
-        );
+        analysis = await this.analyseImage(originalImageUrl);
+        this.logger.log(`═══ PASS 1 RESULT ═══`);
+        this.logger.log(JSON.stringify(analysis, null, 2));
+        this.logger.log(`═══ END PASS 1 ═══`);
       } catch (analysisError) {
         this.logger.warn(
           `Pass 1 failed, falling back to single-pass: ${analysisError}`,
@@ -71,44 +73,66 @@ export class EnhancementProcessor extends WorkerHost {
       }
 
       // ═══════════════════════════════════════════════════════════
-      // PASS 2: Enhance using Nano Banana via fal.ai
+      // PASS 2: Modify scene JSON → send back to image model
       // ═══════════════════════════════════════════════════════════
 
-      this.logger.log(`Pass 2: Generating enhanced image for ${enhancementId}`);
+      this.logger.log(`Pass 2: Generating image for ${enhancementId}`);
 
       const { fal } = await import('@fal-ai/client');
-      fal.config({
-        credentials: this.config.get<string>('fal.key', ''),
-      });
+      fal.config({ credentials: this.config.get<string>('fal.key', '') });
 
-      // Build the prompt — use analysis if available, otherwise fall back to original
-      let enhancementPrompt: string;
-      if (analysis) {
-        enhancementPrompt = backgroundImageUrl
-          ? buildCustomBackgroundPrompt(prompt)
-          : buildEnhancementPrompt(prompt);
-      } else {
-        enhancementPrompt = prompt;
-      }
-
+      let pass2Prompt: string;
       const imageUrls = [originalImageUrl];
-      if (backgroundImageUrl) {
-        imageUrls.push(backgroundImageUrl);
-        this.logger.log(
-          `Pass 2: Using custom background (${imageUrls.length} images)`,
-        );
+
+      if (analysis) {
+        const isCustomBackground = styleId.startsWith('custom:');
+
+        if (isCustomBackground && backgroundImageUrl) {
+          const sceneOverride = {
+            background: 'Match the background from the second reference image',
+            surface: 'Match the surface from the second reference image',
+            lighting: 'Match the lighting from the second reference image',
+          };
+          this.logger.log(`═══ SCENE OVERRIDE (custom background) ═══`);
+          this.logger.log(JSON.stringify(sceneOverride, null, 2));
+
+          const modifiedJson = buildModifiedJson(analysis, sceneOverride);
+          this.logger.log(`═══ MODIFIED JSON ═══`);
+          this.logger.log(modifiedJson);
+          this.logger.log(`═══ END MODIFIED JSON ═══`);
+
+          imageUrls.push(backgroundImageUrl);
+          pass2Prompt = buildCustomBackgroundPrompt(modifiedJson);
+        } else {
+          const sceneOverride = STYLE_SCENE_OVERRIDES[styleId] || {};
+          this.logger.log(`═══ SCENE OVERRIDE (style: ${styleId}) ═══`);
+          this.logger.log(JSON.stringify(sceneOverride, null, 2));
+
+          const modifiedJson = buildModifiedJson(analysis, sceneOverride);
+          this.logger.log(`═══ MODIFIED JSON ═══`);
+          this.logger.log(modifiedJson);
+          this.logger.log(`═══ END MODIFIED JSON ═══`);
+
+          pass2Prompt = buildEnhancementPrompt(modifiedJson);
+        }
       } else {
-        this.logger.log(`Pass 2: Using style preset (1 image)`);
+        // Fallback: no analysis available, use the old-style prompt
+        if (backgroundImageUrl) {
+          imageUrls.push(backgroundImageUrl);
+        }
+        pass2Prompt = prompt;
+        this.logger.log(`═══ NO ANALYSIS — using fallback prompt ═══`);
       }
 
-      this.logger.log(
-        `Pass 2: Prompt length: ${enhancementPrompt.length} chars`,
-      );
+      this.logger.log(`═══ FULL PASS 2 PROMPT ═══`);
+      this.logger.log(pass2Prompt);
+      this.logger.log(`═══ END PROMPT ═══`);
+      this.logger.log(`Pass 2: Sending ${imageUrls.length} image(s) to fal.ai`);
 
       const result = await fal.subscribe('fal-ai/nano-banana/edit', {
         input: {
           image_urls: imageUrls,
-          prompt: enhancementPrompt,
+          prompt: pass2Prompt,
         },
         logs: true,
       });
@@ -121,9 +145,7 @@ export class EnhancementProcessor extends WorkerHost {
       // Persist to S3
       const imageResponse = await fetch(falImageUrl);
       if (!imageResponse.ok) {
-        throw new Error(
-          `Failed to download result image: ${imageResponse.status}`,
-        );
+        throw new Error(`Failed to download result: ${imageResponse.status}`);
       }
 
       const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
@@ -150,8 +172,7 @@ export class EnhancementProcessor extends WorkerHost {
       });
 
       this.logger.log(
-        `Enhancement ${enhancementId} completed in ${processingTimeMs}ms ` +
-          `(${analysis ? 'two-pass' : 'single-pass'}), stored at ${permanentKey}`,
+        `Enhancement ${enhancementId} completed in ${processingTimeMs}ms (${analysis ? 'two-pass' : 'single-pass'})`,
       );
     } catch (error) {
       const errorMessage =
@@ -166,10 +187,10 @@ export class EnhancementProcessor extends WorkerHost {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // Gemini Vision Analysis
+  // Pass 1: Image Analysis via OpenAI
   // ═══════════════════════════════════════════════════════════════
 
-  private async analyseWithGemini(imageUrl: string): Promise<NailAnalysis> {
+  private async analyseImage(imageUrl: string): Promise<NailAnalysis> {
     const apiKey = this.config.get<string>('openai.apiKey');
     if (!apiKey) {
       throw new Error('OPENAI_API_KEY not configured');
@@ -189,14 +210,8 @@ export class EnhancementProcessor extends WorkerHost {
           {
             role: 'user',
             content: [
-              {
-                type: 'image_url',
-                image_url: { url: imageUrl },
-              },
-              {
-                type: 'text',
-                text: ANALYSIS_PROMPT,
-              },
+              { type: 'image_url', image_url: { url: imageUrl } },
+              { type: 'text', text: ANALYSIS_PROMPT },
             ],
           },
         ],
@@ -211,29 +226,34 @@ export class EnhancementProcessor extends WorkerHost {
     const data = await response.json();
     const textContent = data.choices?.[0]?.message?.content || '';
 
+    this.logger.log(`═══ RAW OPENAI RESPONSE ═══`);
+    this.logger.log(textContent);
+    this.logger.log(`═══ END RAW OPENAI RESPONSE ═══`);
+
     if (!textContent) {
       throw new Error('No text response from OpenAI');
     }
 
     const jsonStr = this.extractJson(textContent);
+
+    this.logger.log(`═══ EXTRACTED JSON ═══`);
+    this.logger.log(jsonStr);
+    this.logger.log(`═══ END EXTRACTED JSON ═══`);
+
     return JSON.parse(jsonStr) as NailAnalysis;
   }
 
   private extractJson(text: string): string {
-    // Strip markdown code fences if present
     const cleaned = text
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')
       .trim();
-
     try {
       JSON.parse(cleaned);
       return cleaned;
     } catch {
       const match = cleaned.match(/\{[\s\S]*\}/);
-      if (match) {
-        return match[0];
-      }
+      if (match) return match[0];
       throw new Error(`No JSON found in response: ${text.substring(0, 200)}`);
     }
   }

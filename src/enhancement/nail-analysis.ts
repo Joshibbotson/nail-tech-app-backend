@@ -132,8 +132,8 @@ export const STYLE_SCENE_OVERRIDES: Record<
     lighting: 'Dramatic directional light from one side, deep shadows',
   },
   'salon-pro': {
-    background: 'Clean studio backdrop with beauty products artfully arranged',
-    surface: 'White professional studio surface with beauty tools nearby',
+    background: 'Clean studio backdrop',
+    surface: 'White professional studio surface',
     lighting: 'Bright diffused studio lighting, even and professional',
   },
 };

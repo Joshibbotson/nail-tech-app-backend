@@ -49,7 +49,8 @@ export class EnhancementService {
         'Enhance this nail salon photograph for Instagram. ' +
         'Use the second reference image as the background/surface setting. ' +
         'Place the hands naturally in that environment. ' +
-        'Smooth the skin subtly and naturally. ' +
+        'Ensure the hand looks natural, do not cut body parts off' +
+        // 'Smooth the skin subtly and naturally. ' +
         'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
         'Match the lighting and colour tone of the background. ' +
         'Soft bokeh background. Professional beauty photography.';
