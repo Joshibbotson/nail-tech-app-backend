@@ -26,6 +26,10 @@ export const falConfig = registerAs('fal', () => ({
   key: process.env.FAL_KEY,
 }));
 
+export const openaiConfig = registerAs('openai', () => ({
+  apiKey: process.env.OPENAI_API_KEY,
+}));
+
 export const revenueCatConfig = registerAs('revenueCat', () => ({
   webhookSecret: process.env.REVENUECAT_WEBHOOK_SECRET,
 }));

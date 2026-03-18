@@ -13,12 +13,14 @@ import {
   redisConfig,
   s3Config,
   falConfig,
+  openaiConfig,
   revenueCatConfig,
 } from './config/config';
 import { DeviceModule } from './device/device.module';
 import { TokenModule } from './token/token.module';
 import { EnhancementModule } from './enhancement/enhancement.module';
 import { StyleModule } from './style/style.module';
+import { BackgroundModule } from './background/background.module';
 import { DeviceMiddleware } from './common/Device.middleware';
 
 @Module({
@@ -32,6 +34,7 @@ import { DeviceMiddleware } from './common/Device.middleware';
         redisConfig,
         s3Config,
         falConfig,
+        openaiConfig,
         revenueCatConfig,
       ],
     }),
@@ -61,6 +64,7 @@ import { DeviceMiddleware } from './common/Device.middleware';
     TokenModule,
     EnhancementModule,
     StyleModule,
+    BackgroundModule,
   ],
 })
 export class AppModule implements NestModule {

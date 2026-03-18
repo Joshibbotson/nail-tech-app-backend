@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsIn, IsOptional } from 'class-validator';
 
 export class CreateEnhancementDto {
   @IsString()
@@ -7,8 +7,12 @@ export class CreateEnhancementDto {
 
   @IsString()
   @IsNotEmpty()
-  imageKey: string; // R2 object key from presigned upload
+  imageKey: string;
 
   @IsIn(['standard', 'hd'])
   resolution: 'standard' | 'hd';
+
+  @IsOptional()
+  @IsString()
+  backgroundId?: string; // Custom background ID — if set, overrides styleId prompt
 }

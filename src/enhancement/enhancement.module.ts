@@ -4,10 +4,10 @@ import { BullModule } from '@nestjs/bullmq';
 import { Enhancement, EnhancementSchema } from './enhancement.schema';
 import { EnhancementService } from './enhancement.service';
 import { EnhancementController } from './enhancement.controller';
-import { TokenModule } from '../token/token.module';
-import { StyleModule } from 'src/style/style.module';
 import { EnhancementProcessor } from './enhancement.processor';
 import { StorageService } from './storage.service';
+import { TokenModule } from '../token/token.module';
+import { StyleModule } from '../style/style.module';
 
 @Module({
   imports: [
@@ -20,6 +20,6 @@ import { StorageService } from './storage.service';
   ],
   controllers: [EnhancementController],
   providers: [EnhancementService, EnhancementProcessor, StorageService],
-  exports: [EnhancementService],
+  exports: [EnhancementService, StorageService],
 })
 export class EnhancementModule {}

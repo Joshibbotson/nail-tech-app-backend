@@ -59,6 +59,9 @@ export class Enhancement {
 
   @Prop({ type: Date, default: null })
   completedAt: Date | null;
+
+  @Prop({ type: Object, default: null })
+  metadata: Record<string, any> | null;
 }
 
 export const EnhancementSchema = SchemaFactory.createForClass(Enhancement);

@@ -17,7 +17,7 @@ import { StorageService } from './storage.service';
 import { TokenService } from '../token/token.service';
 import { TransactionContext } from '../token/transaction.schema';
 import { StyleService } from '../style/style.service';
-import { EnhancementJobData } from './enhancement.processor';
+import { EnhancementJobData } from './enhancement.types';
 
 @Injectable()
 export class EnhancementService {
@@ -39,10 +39,47 @@ export class EnhancementService {
     deviceUUID: string,
     dto: CreateEnhancementDto,
   ) {
-    // 1. Validate style exists
-    const style = this.styleService.findById(dto.styleId);
-    if (!style) {
-      throw new BadRequestException(`Unknown style: ${dto.styleId}`);
+    // 1. Build prompt — either from style preset or custom background
+    let prompt: string;
+    let backgroundImageUrl: string | undefined;
+
+    if (dto.backgroundId) {
+      // Custom background — use a generic prompt and pass the background as a reference image
+      prompt =
+        'Enhance this nail salon photograph for Instagram. ' +
+        'Use the second reference image as the background/surface setting. ' +
+        'Place the hands naturally in that environment. ' +
+        'Smooth the skin subtly and naturally. ' +
+        'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
+        'Match the lighting and colour tone of the background. ' +
+        'Soft bokeh background. Professional beauty photography.';
+
+      // Fetch the background's S3 key and generate a signed URL
+      const { BackgroundService } =
+        await import('../background/background.service');
+      // We can't inject BackgroundService here due to circular deps,
+      // so we'll look up the background directly
+      const bgDoc = await this.enhancementModel.db
+        .collection('custombackgrounds')
+        .findOne({
+          _id: new Types.ObjectId(dto.backgroundId),
+          deviceId: new Types.ObjectId(deviceId),
+        });
+
+      if (!bgDoc) {
+        throw new BadRequestException('Background not found');
+      }
+
+      backgroundImageUrl = await this.storageService.getSignedReadUrl(
+        bgDoc.imageKey,
+      );
+    } else {
+      // Style preset
+      const style = this.styleService.findById(dto.styleId);
+      if (!style) {
+        throw new BadRequestException(`Unknown style: ${dto.styleId}`);
+      }
+      prompt = style.buildPrompt();
     }
 
     // 2. Calculate token cost
@@ -57,12 +94,12 @@ export class EnhancementService {
     const enhancement = new this.enhancementModel({
       deviceId: new Types.ObjectId(deviceId),
       status: EnhancementStatus.PENDING,
-      styleId: dto.styleId,
+      styleId: dto.backgroundId ? `custom:${dto.backgroundId}` : dto.styleId,
       resolution: dto.resolution,
       tokensCharged: tokenCost,
       originalImageUrl: originalSignedUrl,
       originalImageKey: dto.imageKey,
-      prompt: style.buildPrompt(),
+      prompt,
     });
 
     await enhancement.save();
@@ -79,11 +116,13 @@ export class EnhancementService {
       throw error;
     }
 
-    // 5. Dispatch to BullMQ — pass the signed URL so the processor can give it to fal.ai
+    // 5. Dispatch to BullMQ
     const jobData: EnhancementJobData = {
       enhancementId: enhancement._id.toString(),
       originalImageUrl: originalSignedUrl,
-      prompt: enhancement.prompt!,
+      backgroundImageUrl,
+      styleId: dto.backgroundId ? `custom:${dto.backgroundId}` : dto.styleId,
+      prompt,
       deviceUUID,
     };
 
