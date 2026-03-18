@@ -10,7 +10,7 @@ import { DeviceService } from 'src/device/device.service';
 declare global {
   namespace Express {
     interface Request {
-      device?: any;
+      device?: import('src/device/device.schema').DeviceDocument;
     }
   }
 }
@@ -19,7 +19,18 @@ declare global {
 export class DeviceMiddleware implements NestMiddleware {
   constructor(private readonly deviceService: DeviceService) {}
 
+  // Paths that don't require device authentication
+  private readonly excludedPaths = [
+    '/api/v1/devices/register',
+    '/api/v1/tokens/webhook',
+  ];
+
   async use(req: Request, _res: Response, next: NextFunction) {
+    // Skip middleware for excluded paths
+    if (this.excludedPaths.some((path) => req.originalUrl.startsWith(path))) {
+      return next();
+    }
+
     const deviceUUID = req.headers['x-device-id'] as string;
 
     if (!deviceUUID) {

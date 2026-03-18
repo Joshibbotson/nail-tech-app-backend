@@ -43,42 +43,37 @@ export class TokenService {
     context: TransactionContext,
     enhancementId?: string,
   ): Promise<TransactionDocument> {
-    const session = await this.connection.startSession();
+    return await this.connection.transaction(async () => {
+      try {
+        // Atomic findOneAndUpdate with balance check in the query filter.
+        // If tokenBalance < amount, this returns null (no match).
+        const device = await this.deviceModel.findOneAndUpdate(
+          { _id: deviceId, tokenBalance: { $gte: amount } },
+          { $inc: { tokenBalance: -amount } },
+          { new: true },
+        );
 
-    try {
-      session.startTransaction();
+        if (!device) {
+          throw new BadRequestException('Insufficient token balance');
+        }
 
-      // Atomic findOneAndUpdate with balance check in the query filter.
-      // If tokenBalance < amount, this returns null (no match).
-      const device = await this.deviceModel.findOneAndUpdate(
-        { _id: deviceId, tokenBalance: { $gte: amount } },
-        { $inc: { tokenBalance: -amount } },
-        { new: true, session },
-      );
+        const transaction = new this.transactionModel({
+          deviceId: new Types.ObjectId(deviceId),
+          type: TransactionType.SPEND,
+          amount: -amount,
+          context,
+          enhancementId: enhancementId
+            ? new Types.ObjectId(enhancementId)
+            : null,
+        });
 
-      if (!device) {
-        await session.abortTransaction();
-        throw new BadRequestException('Insufficient token balance');
+        await transaction.save();
+
+        return transaction;
+      } catch (error) {
+        throw error;
       }
-
-      const transaction = new this.transactionModel({
-        deviceId: new Types.ObjectId(deviceId),
-        type: TransactionType.SPEND,
-        amount: -amount,
-        context,
-        enhancementId: enhancementId ? new Types.ObjectId(enhancementId) : null,
-      });
-
-      await transaction.save({ session });
-      await session.commitTransaction();
-
-      return transaction;
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
-    }
+    });
   }
 
   /**

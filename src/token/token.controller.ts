@@ -19,9 +19,9 @@ const PACK_MAP: Record<
   string,
   { tokens: number; context: TransactionContext }
 > = {
-  nailglow_starter_20: { tokens: 20, context: TransactionContext.IAP_PACK_20 },
-  nailglow_popular_50: { tokens: 50, context: TransactionContext.IAP_PACK_50 },
-  nailglow_best_150: { tokens: 150, context: TransactionContext.IAP_PACK_150 },
+  nailtech_starter_20: { tokens: 20, context: TransactionContext.IAP_PACK_20 },
+  nailtech_popular_50: { tokens: 50, context: TransactionContext.IAP_PACK_50 },
+  nailtech_best_150: { tokens: 150, context: TransactionContext.IAP_PACK_150 },
 };
 
 @Controller('tokens')
@@ -44,9 +44,14 @@ export class TokenController {
     @Body() body: any,
     @Headers('authorization') authHeader: string,
   ) {
-    // Verify webhook secret
+    // Verify webhook secret.
+    // RevenueCat sends the Authorization header value exactly as configured
+    // in their dashboard. If you set "Bearer mysecret", they send "Bearer mysecret".
     const secret = this.configService.get<string>('revenueCat.webhookSecret');
-    if (secret && authHeader !== `Bearer ${secret}`) {
+    if (secret && authHeader !== secret) {
+      this.logger.warn(
+        `Webhook auth failed. Expected: ${secret?.substring(0, 10)}..., Got: ${authHeader?.substring(0, 10)}...`,
+      );
       throw new UnauthorizedException('Invalid webhook secret');
     }
 
