@@ -87,9 +87,84 @@ const V1_STYLES: StylePreset[] = [
     styleId: 'salon-pro',
     name: 'Salon Studio',
     description: 'Professional studio flat-lay, beauty products',
-    promptTemplate: `${BASE_PROMPT} Dark/black out-of-focus background, high contrast lighting on hands, white surface beneath hands, professional studio-style feel, tight crop with minimal negative space, even diffused lighting from above/front, no visible clutter or props, clinical/polished vibe. `,
+    promptTemplate: `${BASE_PROMPT} Dark/black out-of-focus background, high contrast lighting on hands, white surface beneath hands, professional studio-style feel, tight crop with minimal negative space, even diffused lighting from above/front, no visible clutter or props, clinical/polished vibe.`,
     thumbnailUrl: '',
     sortOrder: 5,
+    active: true,
+    buildPrompt() {
+      return this.promptTemplate;
+    },
+  },
+
+  // NEW STYLES
+
+  {
+    styleId: 'limewash',
+    name: 'Limewash Neutral',
+    description: 'Textured plaster wall, soft neutral tones',
+    promptTemplate: `${BASE_PROMPT} Place the hands on a matte plaster or stone surface with a soft limewash wall background in warm neutral tones. Lighting: soft diffused natural light with gentle shadows. Style: modern, organic, high-end minimal.`,
+    thumbnailUrl: '',
+    sortOrder: 6,
+    active: true,
+    buildPrompt() {
+      return this.promptTemplate;
+    },
+  },
+  {
+    styleId: 'oak',
+    name: 'Natural Oak',
+    description: 'Light wood grain, natural feel',
+    promptTemplate: `${BASE_PROMPT} Place the hands on a light ash wood surface with visible natural grain. Background softly blurred ash panels. Lighting: warm natural daylight from the side with soft shadows. Style: natural, clean, lifestyle.`,
+    thumbnailUrl: '',
+    sortOrder: 7,
+    active: true,
+    buildPrompt() {
+      return this.promptTemplate;
+    },
+  },
+  {
+    styleId: 'stone',
+    name: 'Stone Minimal',
+    description: 'Raw stone texture, neutral aesthetic',
+    promptTemplate: `${BASE_PROMPT} Place the hands on a raw travertine or limestone surface with subtle natural texture. Background softly blurred stone wall. Lighting: soft directional daylight to enhance texture. Style: minimal, earthy, editorial.`,
+    thumbnailUrl: '',
+    sortOrder: 8,
+    active: true,
+    buildPrompt() {
+      return this.promptTemplate;
+    },
+  },
+  {
+    styleId: 'glass',
+    name: 'Glossy Glass',
+    description: 'Clean reflections, modern glossy surface',
+    promptTemplate: `${BASE_PROMPT} Place the hands on a glossy glass surface with subtle reflections. Background of blurred glass panels. Lighting: bright soft studio lighting with gentle highlights. Style: sleek, modern, high-end beauty.`,
+    thumbnailUrl: '',
+    sortOrder: 9,
+    active: true,
+    buildPrompt() {
+      return this.promptTemplate;
+    },
+  },
+  {
+    styleId: 'cream-boujee',
+    name: 'Cream Luxury',
+    description: 'Soft beige luxury aesthetic',
+    promptTemplate: `${BASE_PROMPT} Place the hands on a smooth cream surface with a soft beige luxury interior background. Lighting: high-end diffused lighting, soft and flattering. Style: elegant, premium, influencer aesthetic.`,
+    thumbnailUrl: '',
+    sortOrder: 10,
+    active: true,
+    buildPrompt() {
+      return this.promptTemplate;
+    },
+  },
+  {
+    styleId: 'spa',
+    name: 'Spa Calm',
+    description: 'Relaxing spa textures, neutral tones',
+    promptTemplate: `${BASE_PROMPT} Place the hands on a neutral stone or folded towel surface with a soft blurred spa background. Lighting: calm soft lighting with slight warmth. Style: relaxing, clean, wellness aesthetic.`,
+    thumbnailUrl: '',
+    sortOrder: 11,
     active: true,
     buildPrompt() {
       return this.promptTemplate;

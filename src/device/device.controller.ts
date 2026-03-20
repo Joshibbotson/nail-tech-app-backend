@@ -1,8 +1,8 @@
-import { Controller, Post, Get, Body } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body } from '@nestjs/common';
 import { DeviceService } from './device.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
-import { CurrentDevice } from 'src/common/CurrentDevice.decorator';
 import { DeviceDocument } from './device.schema';
+import { CurrentDevice } from 'src/common/CurrentDevice.decorator';
 
 @Controller('devices')
 export class DeviceController {
@@ -10,7 +10,6 @@ export class DeviceController {
 
   @Post('register')
   async register(@Body() dto: RegisterDeviceDto) {
-    console.log('register:', dto);
     const device = await this.deviceService.register(dto);
     return {
       id: device._id,
@@ -31,5 +30,11 @@ export class DeviceController {
       settings: device.settings,
       createdAt: device.createdAt,
     };
+  }
+
+  @Delete('account')
+  async deleteAccount(@CurrentDevice() device: DeviceDocument) {
+    await this.deviceService.deleteAccount(device);
+    return { deleted: true };
   }
 }

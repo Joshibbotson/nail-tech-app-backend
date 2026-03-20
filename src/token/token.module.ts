@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Device, DeviceSchema } from '../device/device.schema';
 import { Transaction, TransactionSchema } from './transaction.schema';
@@ -12,7 +12,7 @@ import { DeviceModule } from '../device/device.module';
       { name: Device.name, schema: DeviceSchema },
       { name: Transaction.name, schema: TransactionSchema },
     ]),
-    DeviceModule,
+    forwardRef(() => DeviceModule),
   ],
   controllers: [TokenController],
   providers: [TokenService],

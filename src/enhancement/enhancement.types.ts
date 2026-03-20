@@ -3,6 +3,7 @@ export interface EnhancementJobData {
   originalImageUrl: string;
   backgroundImageUrl?: string;
   styleId: string;
-  prompt: string; // Fallback prompt if analysis fails
+  resolution: 'standard' | 'hd';
+  prompt: string;
   deviceUUID: string;
 }

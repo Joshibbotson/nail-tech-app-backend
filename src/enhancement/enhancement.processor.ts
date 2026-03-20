@@ -39,6 +39,7 @@ export class EnhancementProcessor extends WorkerHost {
       originalImageUrl,
       backgroundImageUrl,
       styleId,
+      resolution,
       prompt,
       deviceUUID,
     } = job.data;
@@ -63,7 +64,7 @@ export class EnhancementProcessor extends WorkerHost {
 
       try {
         analysis = await this.analyseImage(originalImageUrl);
-        this.logger.log(`═══ PASS 1 RESULT ═══`);
+        this.logger.log(`═══ PASS 1 RESULT (raw analysis JSON) ═══`);
         this.logger.log(JSON.stringify(analysis, null, 2));
         this.logger.log(`═══ END PASS 1 ═══`);
       } catch (analysisError) {
@@ -73,7 +74,7 @@ export class EnhancementProcessor extends WorkerHost {
       }
 
       // ═══════════════════════════════════════════════════════════
-      // PASS 2: Modify scene JSON → send back to image model
+      // PASS 2: Modify scene JSON → send back to model
       // ═══════════════════════════════════════════════════════════
 
       this.logger.log(`Pass 2: Generating image for ${enhancementId}`);
@@ -97,7 +98,7 @@ export class EnhancementProcessor extends WorkerHost {
           this.logger.log(JSON.stringify(sceneOverride, null, 2));
 
           const modifiedJson = buildModifiedJson(analysis, sceneOverride);
-          this.logger.log(`═══ MODIFIED JSON ═══`);
+          this.logger.log(`═══ MODIFIED JSON (sent to fal.ai) ═══`);
           this.logger.log(modifiedJson);
           this.logger.log(`═══ END MODIFIED JSON ═══`);
 
@@ -109,14 +110,13 @@ export class EnhancementProcessor extends WorkerHost {
           this.logger.log(JSON.stringify(sceneOverride, null, 2));
 
           const modifiedJson = buildModifiedJson(analysis, sceneOverride);
-          this.logger.log(`═══ MODIFIED JSON ═══`);
+          this.logger.log(`═══ MODIFIED JSON (sent to fal.ai) ═══`);
           this.logger.log(modifiedJson);
           this.logger.log(`═══ END MODIFIED JSON ═══`);
 
           pass2Prompt = buildEnhancementPrompt(modifiedJson);
         }
       } else {
-        // Fallback: no analysis available, use the old-style prompt
         if (backgroundImageUrl) {
           imageUrls.push(backgroundImageUrl);
         }
@@ -172,7 +172,8 @@ export class EnhancementProcessor extends WorkerHost {
       });
 
       this.logger.log(
-        `Enhancement ${enhancementId} completed in ${processingTimeMs}ms (${analysis ? 'two-pass' : 'single-pass'})`,
+        `Enhancement ${enhancementId} completed in ${processingTimeMs}ms ` +
+          `(${analysis ? 'two-pass' : 'single-pass'})`,
       );
     } catch (error) {
       const errorMessage =

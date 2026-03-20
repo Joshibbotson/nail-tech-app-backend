@@ -105,6 +105,32 @@ export const STYLE_SCENE_OVERRIDES: Record<
   string,
   Partial<NailAnalysis['scene']>
 > = {
+  limewash: {
+    background:
+      'Soft limewash plaster wall in warm neutral tones, subtly textured',
+    surface: 'Matte plaster or stone surface with organic imperfections',
+    lighting: 'Soft diffused natural light with gentle shadows',
+  },
+  oak: {
+    background: 'Light ash wood panel wall, softly blurred',
+    surface: 'Natural light ash wood grain surface, smooth and warm',
+    lighting: 'Warm natural daylight from the side, soft shadows',
+  },
+  stone: {
+    background: 'Textured travertine or limestone wall, softly out of focus',
+    surface: 'Raw stone slab with subtle pits and texture',
+    lighting: 'Soft directional daylight enhancing texture',
+  },
+  glass: {
+    background: 'Clean blurred glass panels with soft reflections',
+    surface: 'Glossy glass surface with subtle reflections',
+    lighting: 'Bright soft studio light with gentle highlights',
+  },
+  'cream-boujee': {
+    background: 'Soft beige luxury interior, minimal and blurred',
+    surface: 'Smooth cream surface with subtle satin finish',
+    lighting: 'High-end diffused lighting, soft and flattering',
+  },
   marble: {
     background: 'Soft blurred marble wall',
     surface:
