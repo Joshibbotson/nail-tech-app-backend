@@ -4,6 +4,9 @@ import {
   Post,
   Body,
   Headers,
+  Query,
+  ParseIntPipe,
+  DefaultValuePipe,
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
@@ -37,6 +40,19 @@ export class TokenController {
   @Get('balance')
   async getBalance(@CurrentDevice() device: DeviceDocument) {
     return this.tokenService.getBalance(device._id.toString());
+  }
+
+  @Get('transactions')
+  async getTransactions(
+    @CurrentDevice() device: DeviceDocument,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.tokenService.getTransactions(
+      device._id.toString(),
+      page,
+      limit,
+    );
   }
 
   @Post('webhook')

@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { InjectModel, InjectConnection } from '@nestjs/mongoose';
-import { Model, Connection, Types } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import { Device, DeviceDocument } from '../device/device.schema';
 import {
   Transaction,
@@ -16,26 +16,43 @@ export class TokenService {
     private readonly deviceModel: Model<DeviceDocument>,
     @InjectModel(Transaction.name)
     private readonly transactionModel: Model<TransactionDocument>,
-    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   async getBalance(deviceId: string) {
     const device = await this.deviceModel.findById(deviceId).lean();
-    const transactions = await this.transactionModel
-      .find({ deviceId: new Types.ObjectId(deviceId) })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean();
 
     return {
       balance: device?.tokenBalance ?? 0,
-      transactions,
+    };
+  }
+
+  async getTransactions(deviceId: string, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [transactions, total] = await Promise.all([
+      this.transactionModel
+        .find({ deviceId: new Types.ObjectId(deviceId) })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      this.transactionModel.countDocuments({
+        deviceId: new Types.ObjectId(deviceId),
+      }),
+    ]);
+
+    return {
+      items: transactions,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
     };
   }
 
   /**
-   * Debit tokens atomically using a MongoDB transaction.
-   * Returns the transaction record, or throws if insufficient balance.
+   * Debit tokens atomically.
+   * The query filter ensures tokenBalance >= amount before decrementing,
+   * so it's impossible to go negative even without a transaction.
    */
   async debit(
     deviceId: string,
@@ -43,37 +60,30 @@ export class TokenService {
     context: TransactionContext,
     enhancementId?: string,
   ): Promise<TransactionDocument> {
-    return await this.connection.transaction(async () => {
-      try {
-        // Atomic findOneAndUpdate with balance check in the query filter.
-        // If tokenBalance < amount, this returns null (no match).
-        const device = await this.deviceModel.findOneAndUpdate(
-          { _id: deviceId, tokenBalance: { $gte: amount } },
-          { $inc: { tokenBalance: -amount } },
-          { new: true },
-        );
+    // Atomic: only matches if balance is sufficient, then decrements in one operation
+    const device = await this.deviceModel.findOneAndUpdate(
+      { _id: deviceId, tokenBalance: { $gte: amount } },
+      { $inc: { tokenBalance: -amount } },
+      { new: true },
+    );
 
-        if (!device) {
-          throw new BadRequestException('Insufficient token balance');
-        }
+    if (!device) {
+      throw new BadRequestException('Insufficient token balance');
+    }
 
-        const transaction = new this.transactionModel({
-          deviceId: new Types.ObjectId(deviceId),
-          type: TransactionType.SPEND,
-          amount: -amount,
-          context,
-          enhancementId: enhancementId
-            ? new Types.ObjectId(enhancementId)
-            : null,
-        });
-
-        await transaction.save();
-
-        return transaction;
-      } catch (error) {
-        throw error;
-      }
+    // Log the transaction (if this fails, the balance is already debited —
+    // but the ledger entry is for auditing, not for balance calculation)
+    const transaction = new this.transactionModel({
+      deviceId: new Types.ObjectId(deviceId),
+      type: TransactionType.SPEND,
+      amount: -amount,
+      context,
+      enhancementId: enhancementId ? new Types.ObjectId(enhancementId) : null,
     });
+
+    await transaction.save();
+
+    return transaction;
   }
 
   /**
@@ -85,37 +95,23 @@ export class TokenService {
     context: TransactionContext,
     metadata?: Record<string, any>,
   ): Promise<TransactionDocument> {
-    const session = await this.connection.startSession();
+    await this.deviceModel.findByIdAndUpdate(deviceId, {
+      $inc: { tokenBalance: amount },
+    });
 
-    try {
-      session.startTransaction();
+    const transaction = new this.transactionModel({
+      deviceId: new Types.ObjectId(deviceId),
+      type:
+        context === TransactionContext.REFUND_FAILED
+          ? TransactionType.REFUND
+          : TransactionType.PURCHASE,
+      amount,
+      context,
+      metadata,
+    });
 
-      await this.deviceModel.findByIdAndUpdate(
-        deviceId,
-        { $inc: { tokenBalance: amount } },
-        { session },
-      );
+    await transaction.save();
 
-      const transaction = new this.transactionModel({
-        deviceId: new Types.ObjectId(deviceId),
-        type:
-          context === TransactionContext.REFUND_FAILED
-            ? TransactionType.REFUND
-            : TransactionType.PURCHASE,
-        amount,
-        context,
-        metadata,
-      });
-
-      await transaction.save({ session });
-      await session.commitTransaction();
-
-      return transaction;
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
-    }
+    return transaction;
   }
 }
