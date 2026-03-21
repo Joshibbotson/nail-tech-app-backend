@@ -10,6 +10,7 @@ import {
   UnauthorizedException,
   Logger,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import { TokenService } from './token.service';
 import { DeviceService } from '../device/device.service';
@@ -56,6 +57,7 @@ export class TokenController {
   }
 
   @Post('webhook')
+  @SkipThrottle()
   async revenueCatWebhook(
     @Body() body: any,
     @Headers('authorization') authHeader: string,
@@ -107,7 +109,7 @@ export class TokenController {
     }
 
     // Credit the tokens
-    await this.tokenService.credit(
+    const transaction = await this.tokenService.credit(
       device._id.toString(),
       pack.tokens,
       pack.context,
@@ -118,6 +120,13 @@ export class TokenController {
         currency: event.currency,
       },
     );
+
+    if (!transaction) {
+      this.logger.warn(
+        `Duplicate webhook detected for event ${event.id}, skipping`,
+      );
+      return { received: true, handled: false, reason: 'duplicate' };
+    }
 
     this.logger.log(`Credited ${pack.tokens} tokens to device ${deviceUUID}`);
 

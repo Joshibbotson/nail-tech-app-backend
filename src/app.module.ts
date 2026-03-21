@@ -7,6 +7,8 @@ import {
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bullmq';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import {
   appConfig,
   mongoConfig,
@@ -39,6 +41,20 @@ import { DeviceMiddleware } from './common/Device.middleware';
       ],
     }),
 
+    // Rate limiting — applied globally via ThrottlerGuard
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000, // 1 second
+        limit: 5, // 5 requests per second per IP
+      },
+      {
+        name: 'medium',
+        ttl: 60000, // 1 minute
+        limit: 60, // 60 requests per minute per IP
+      },
+    ]),
+
     // MongoDB
     MongooseModule.forRootAsync({
       inject: [ConfigService],
@@ -65,6 +81,12 @@ import { DeviceMiddleware } from './common/Device.middleware';
     EnhancementModule,
     StyleModule,
     BackgroundModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {

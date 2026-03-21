@@ -60,7 +60,6 @@ export class TokenService {
     context: TransactionContext,
     enhancementId?: string,
   ): Promise<TransactionDocument> {
-    // Atomic: only matches if balance is sufficient, then decrements in one operation
     const device = await this.deviceModel.findOneAndUpdate(
       { _id: deviceId, tokenBalance: { $gte: amount } },
       { $inc: { tokenBalance: -amount } },
@@ -71,8 +70,6 @@ export class TokenService {
       throw new BadRequestException('Insufficient token balance');
     }
 
-    // Log the transaction (if this fails, the balance is already debited —
-    // but the ledger entry is for auditing, not for balance calculation)
     const transaction = new this.transactionModel({
       deviceId: new Types.ObjectId(deviceId),
       type: TransactionType.SPEND,
@@ -82,8 +79,19 @@ export class TokenService {
     });
 
     await transaction.save();
-
     return transaction;
+  }
+
+  /**
+   * Link a transaction to an enhancement after creation.
+   */
+  async linkTransaction(
+    transactionId: string,
+    enhancementId: string,
+  ): Promise<void> {
+    await this.transactionModel.findByIdAndUpdate(transactionId, {
+      enhancementId: new Types.ObjectId(enhancementId),
+    });
   }
 
   /**
@@ -94,7 +102,17 @@ export class TokenService {
     amount: number,
     context: TransactionContext,
     metadata?: Record<string, any>,
-  ): Promise<TransactionDocument> {
+  ): Promise<TransactionDocument | null> {
+    // Webhook replay protection: check if this RevenueCat event was already processed
+    if (metadata?.revenueCatEventId) {
+      const existing = await this.transactionModel.findOne({
+        'metadata.revenueCatEventId': metadata.revenueCatEventId,
+      });
+      if (existing) {
+        return null; // Already processed, skip
+      }
+    }
+
     await this.deviceModel.findByIdAndUpdate(deviceId, {
       $inc: { tokenBalance: amount },
     });

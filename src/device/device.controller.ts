@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Delete, Body } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { DeviceService } from './device.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { DeviceDocument } from './device.schema';
@@ -9,6 +10,10 @@ export class DeviceController {
   constructor(private readonly deviceService: DeviceService) {}
 
   @Post('register')
+  @Throttle({
+    short: { limit: 1, ttl: 1000 }, // 1 per second
+    medium: { limit: 5, ttl: 3600000 }, // 5 per hour per IP
+  })
   async register(@Body() dto: RegisterDeviceDto) {
     const device = await this.deviceService.register(dto);
     return {

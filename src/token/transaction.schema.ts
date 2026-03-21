@@ -41,3 +41,6 @@ export class Transaction {
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
+
+// Index for webhook replay protection
+TransactionSchema.index({ 'metadata.revenueCatEventId': 1 }, { sparse: true });
