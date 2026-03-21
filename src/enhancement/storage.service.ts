@@ -48,6 +48,25 @@ export class StorageService {
   }
 
   /**
+   * Generate a presigned URL for background uploads.
+   */
+  async generateBackgroundUploadUrl(
+    deviceUUID: string,
+  ): Promise<{ uploadUrl: string; imageKey: string }> {
+    const imageKey = `backgrounds/${deviceUUID}/${Date.now()}.jpg`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: imageKey,
+      ContentType: 'image/jpeg',
+    });
+
+    const uploadUrl = await getSignedUrl(this.s3, command, { expiresIn: 300 });
+
+    return { uploadUrl, imageKey };
+  }
+
+  /**
    * Generate a presigned GET URL for reading a private image.
    */
   async getSignedReadUrl(imageKey: string): Promise<string> {

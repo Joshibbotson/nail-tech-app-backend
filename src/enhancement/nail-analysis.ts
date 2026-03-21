@@ -116,46 +116,11 @@ export const STYLE_SCENE_OVERRIDES: Record<
     surface: 'Natural light ash wood grain surface, smooth and warm',
     lighting: 'Warm natural daylight from the side, soft shadows',
   },
-  stone: {
-    background: 'Textured travertine or limestone wall, softly out of focus',
-    surface: 'Raw stone slab with subtle pits and texture',
-    lighting: 'Soft directional daylight enhancing texture',
-  },
-  glass: {
-    background: 'Clean blurred glass panels with soft reflections',
-    surface: 'Glossy glass surface with subtle reflections',
-    lighting: 'Bright soft studio light with gentle highlights',
-  },
-  'cream-boujee': {
-    background: 'Soft beige luxury interior, minimal and blurred',
-    surface: 'Smooth cream surface with subtle satin finish',
-    lighting: 'High-end diffused lighting, soft and flattering',
-  },
   marble: {
     background: 'Soft blurred marble wall',
     surface:
       'Polished white marble tray with subtle grey veining and gold accents',
     lighting: 'Soft diffused natural light from above, warm tone',
-  },
-  minimal: {
-    background: 'Pure white, seamless',
-    surface: 'Clean white surface, no texture',
-    lighting: 'Bright even studio lighting, minimal shadows',
-  },
-  floral: {
-    background: 'Soft blurred dried flowers and eucalyptus',
-    surface: 'Natural linen fabric with dried flower stems nearby',
-    lighting: 'Warm golden hour side light',
-  },
-  cosy: {
-    background: 'Warm blurred interior with candle glow',
-    surface: 'Chunky cream knit blanket texture',
-    lighting: 'Warm amber candlelight mixed with soft window light',
-  },
-  'dark-moody': {
-    background: 'Dark, out of focus, deep shadows',
-    surface: 'Dark slate or matte black concrete',
-    lighting: 'Dramatic directional light from one side, deep shadows',
   },
   'salon-pro': {
     background: 'Clean studio backdrop',

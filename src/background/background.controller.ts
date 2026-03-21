@@ -6,12 +6,15 @@ import {
   Delete,
   Body,
   Param,
+  BadRequestException,
 } from '@nestjs/common';
 import { BackgroundService } from './background.service';
 import { CreateBackgroundDto, UpdateBackgroundDto } from './dto/background.dto';
 import { DeviceDocument } from '../device/device.schema';
 import { StorageService } from '../enhancement/storage.service';
 import { CurrentDevice } from 'src/common/CurrentDevice.decorator';
+
+const MAX_BACKGROUNDS_PER_DEVICE = 20;
 
 @Controller('backgrounds')
 export class BackgroundController {
@@ -22,7 +25,16 @@ export class BackgroundController {
 
   @Post('upload-url')
   async getUploadUrl(@CurrentDevice() device: DeviceDocument) {
-    return this.storageService.generateUploadUrl(device.deviceUUID);
+    // Check background count limit
+    const count = await this.backgroundService.countForDevice(
+      device._id.toString(),
+    );
+    if (count >= MAX_BACKGROUNDS_PER_DEVICE) {
+      throw new BadRequestException(
+        `Maximum of ${MAX_BACKGROUNDS_PER_DEVICE} backgrounds allowed. Delete some to add more.`,
+      );
+    }
+    return this.storageService.generateBackgroundUploadUrl(device.deviceUUID);
   }
 
   @Post()

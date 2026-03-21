@@ -12,7 +12,7 @@ import { RegisterDeviceDto } from './dto/register-device.dto';
 @Injectable()
 export class DeviceService {
   private readonly logger = new Logger(DeviceService.name);
-
+  private readonly STARTING_TOKENS_AMOUNT = 3;
   constructor(
     @InjectModel(Device.name)
     private readonly deviceModel: Model<DeviceDocument>,
@@ -43,7 +43,7 @@ export class DeviceService {
 
     const device = new this.deviceModel({
       deviceUUID: dto.deviceUUID,
-      tokenBalance: wasPreviouslyDeleted ? 0 : 10,
+      tokenBalance: wasPreviouslyDeleted ? 0 : this.STARTING_TOKENS_AMOUNT,
     });
 
     return device.save();

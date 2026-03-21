@@ -42,6 +42,12 @@ export class BackgroundService {
     return background.save();
   }
 
+  async countForDevice(deviceId: string): Promise<number> {
+    return this.backgroundModel.countDocuments({
+      deviceId: new Types.ObjectId(deviceId),
+    });
+  }
+
   async findAll(
     deviceId: string,
   ): Promise<
