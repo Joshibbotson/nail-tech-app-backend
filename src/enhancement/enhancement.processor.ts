@@ -10,6 +10,8 @@ import {
   EnhancementStatus,
 } from './enhancement.schema';
 import { StorageService } from './storage.service';
+import { TokenService } from '../token/token.service';
+import { TransactionContext } from '../token/transaction.schema';
 import { EnhancementJobData } from './enhancement.types';
 import {
   NailAnalysis,
@@ -28,6 +30,7 @@ export class EnhancementProcessor extends WorkerHost {
     @InjectModel(Enhancement.name)
     private readonly enhancementModel: Model<EnhancementDocument>,
     private readonly storageService: StorageService,
+    private readonly tokenService: TokenService,
     private readonly config: ConfigService,
   ) {
     super();
@@ -184,6 +187,28 @@ export class EnhancementProcessor extends WorkerHost {
         status: EnhancementStatus.FAILED,
         error: errorMessage,
       });
+
+      // Refund token on failure
+      try {
+        const enhancement = await this.enhancementModel
+          .findById(enhancementId)
+          .lean();
+        if (enhancement?.deviceId && enhancement?.tokensCharged) {
+          await this.tokenService.credit(
+            enhancement.deviceId.toString(),
+            enhancement.tokensCharged,
+            TransactionContext.REFUND_FAILED,
+            { reason: 'enhancement_failed', enhancementId },
+          );
+          this.logger.log(
+            `Refunded ${enhancement.tokensCharged} token(s) for failed enhancement ${enhancementId}`,
+          );
+        }
+      } catch (refundError) {
+        this.logger.error(
+          `Failed to refund tokens for ${enhancementId}: ${refundError}`,
+        );
+      }
     }
   }
 

@@ -17,7 +17,10 @@ import { StorageService } from './storage.service';
 import { TokenService } from '../token/token.service';
 import { TransactionContext } from '../token/transaction.schema';
 import { StyleService } from '../style/style.service';
-import { EnhancementJobData } from './enhancement.types';
+import {
+  EnhancementJobData,
+  BackgroundExtractJobData,
+} from './enhancement.types';
 
 @Injectable()
 export class EnhancementService {
@@ -25,6 +28,7 @@ export class EnhancementService {
     @InjectModel(Enhancement.name)
     private readonly enhancementModel: Model<EnhancementDocument>,
     @InjectQueue('enhancement') private readonly enhancementQueue: Queue,
+    @InjectQueue('background-extract') private readonly bgExtractQueue: Queue,
     private readonly storageService: StorageService,
     private readonly tokenService: TokenService,
     private readonly styleService: StyleService,
@@ -39,6 +43,33 @@ export class EnhancementService {
     deviceUUID: string,
     dto: CreateEnhancementDto,
   ) {
+    // Guard: limit concurrent pending/processing enhancements per device
+    const pendingCount = await this.enhancementModel.countDocuments({
+      deviceId: new Types.ObjectId(deviceId),
+      status: {
+        $in: [EnhancementStatus.PENDING, EnhancementStatus.PROCESSING],
+      },
+    });
+
+    if (pendingCount >= 3) {
+      throw new BadRequestException(
+        'Too many enhancements in progress. Please wait for current ones to complete.',
+      );
+    }
+
+    // Daily cap: 50 enhancements per device per day
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const dailyCount = await this.enhancementModel.countDocuments({
+      deviceId: new Types.ObjectId(deviceId),
+      createdAt: { $gte: dayAgo },
+    });
+
+    if (dailyCount >= 50) {
+      throw new BadRequestException(
+        'Daily enhancement limit reached. Try again tomorrow.',
+      );
+    }
+
     // 1. Build prompt — either from style preset or custom background
     let prompt: string;
     let backgroundImageUrl: string | undefined;
@@ -49,6 +80,7 @@ export class EnhancementService {
         'Enhance this nail salon photograph for Instagram. ' +
         'Use the second reference image as the background/surface setting. ' +
         'Place the hands naturally in that environment. ' +
+        'Do not change the size of the hand' +
         'Smooth the skin subtly and naturally. ' +
         'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
         'Match the lighting and colour tone of the background. ' +
@@ -82,15 +114,24 @@ export class EnhancementService {
       prompt = style.buildPrompt();
     }
 
-    // 2. Calculate token cost
-    const tokenCost = dto.resolution === 'hd' ? 2 : 1;
+    // 2. Token cost is always 1
+    const tokenCost = 1;
 
-    // 3. Generate a signed URL so fal.ai can download the original image
+    // 3. Debit tokens FIRST — this is atomic and will throw if insufficient
+    //    We debit before creating the enhancement so we never have an
+    //    unpaid enhancement record sitting in the DB.
+    const transaction = await this.tokenService.debit(
+      deviceId,
+      tokenCost,
+      TransactionContext.ENHANCEMENT,
+    );
+
+    // 4. Generate a signed URL so fal.ai can download the original image
     const originalSignedUrl = await this.storageService.getSignedReadUrl(
       dto.imageKey,
     );
 
-    // 4. Create enhancement record
+    // 5. Create enhancement record (tokens already secured)
     const enhancement = new this.enhancementModel({
       deviceId: new Types.ObjectId(deviceId),
       status: EnhancementStatus.PENDING,
@@ -100,23 +141,18 @@ export class EnhancementService {
       originalImageUrl: originalSignedUrl,
       originalImageKey: dto.imageKey,
       prompt,
+      transactionId: transaction._id,
     });
 
     await enhancement.save();
 
-    try {
-      await this.tokenService.debit(
-        deviceId,
-        tokenCost,
-        TransactionContext.ENHANCEMENT,
-        enhancement._id.toString(),
-      );
-    } catch (error) {
-      await this.enhancementModel.findByIdAndDelete(enhancement._id);
-      throw error;
-    }
+    // Update the transaction with the enhancement ID for traceability
+    await this.tokenService.linkTransaction(
+      transaction._id.toString(),
+      enhancement._id.toString(),
+    );
 
-    // 5. Dispatch to BullMQ
+    // 6. Dispatch to BullMQ
     const jobData: EnhancementJobData = {
       enhancementId: enhancement._id.toString(),
       originalImageUrl: originalSignedUrl,
@@ -198,6 +234,54 @@ export class EnhancementService {
     }
 
     await this.enhancementModel.findByIdAndDelete(enhancementId);
+  }
+
+  async extractBackground(
+    enhancementId: string,
+    deviceId: string,
+    deviceUUID: string,
+  ): Promise<void> {
+    const enhancement = await this.enhancementModel
+      .findOne({
+        _id: enhancementId,
+        deviceId: new Types.ObjectId(deviceId),
+        status: EnhancementStatus.COMPLETED,
+      })
+      .lean();
+
+    if (!enhancement) {
+      throw new NotFoundException('Completed enhancement not found');
+    }
+
+    if (!enhancement.enhancedImageKey) {
+      throw new BadRequestException('No enhanced image available');
+    }
+
+    // Debit 1 token
+    await this.tokenService.debit(
+      deviceId,
+      1,
+      TransactionContext.ENHANCEMENT,
+      enhancementId,
+    );
+
+    // Generate signed URL for the enhanced image
+    const sourceImageUrl = await this.storageService.getSignedReadUrl(
+      enhancement.enhancedImageKey,
+    );
+
+    const jobData: BackgroundExtractJobData = {
+      sourceImageUrl,
+      sourceImageKey: enhancement.enhancedImageKey,
+      deviceId,
+      deviceUUID,
+      backgroundName: `Extracted Background`,
+    };
+
+    await this.bgExtractQueue.add('extract', jobData, {
+      attempts: 2,
+      backoff: { type: 'exponential', delay: 5000 },
+    });
   }
 
   /**

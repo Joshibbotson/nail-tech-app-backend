@@ -7,3 +7,11 @@ export interface EnhancementJobData {
   prompt: string;
   deviceUUID: string;
 }
+
+export interface BackgroundExtractJobData {
+  sourceImageUrl: string;
+  sourceImageKey: string;
+  deviceId: string;
+  deviceUUID: string;
+  backgroundName: string;
+}
