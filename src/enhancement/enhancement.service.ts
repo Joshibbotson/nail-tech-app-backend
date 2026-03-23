@@ -81,7 +81,7 @@ export class EnhancementService {
         'Use the second reference image as the background/surface setting. ' +
         'Place the hands naturally in that environment. ' +
         'Do not remove any human body parts' +
-        'Do not change the size of the hand' +
+        'Do not change the size of the hand or hands' +
         'Smooth the skin subtly and naturally. ' +
         'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
         'Match the lighting and colour tone of the background. ' +

@@ -15,6 +15,9 @@ const BASE_PROMPT =
   'Enhance this nail salon photograph for Instagram. ' +
   //   'Smooth the skin subtly and naturally. ' +
   'Do not alter the physical properties of the hands at all.' +
+  'Place the hands naturally in that environment. ' +
+  'Do not remove any human body parts' +
+  'Do not change the size of the hand or hands' +
   'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
   'Soft bokeh background. Professional beauty photography.';
 
