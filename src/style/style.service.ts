@@ -12,26 +12,27 @@ export interface StylePreset {
 }
 
 const BASE_PROMPT =
-  'Enhance this nail salon photograph for Instagram while preserving the original composition and full anatomy. ' +
-  'CRITICAL: Do not crop, remove, or alter any part of the body — wrists, arms, and all visible body parts must remain fully intact exactly as in the original image. ' +
-  'Do not reposition or isolate the hands. Keep them naturally connected to the body. ' +
+  'Enhance this nail salon photograph for Instagram while strictly preserving the original composition and full anatomy. ' +
+  'CRITICAL: Do not crop, remove, replace, or regenerate any part of the body — wrists, arms, and all visible body parts must remain fully intact and continuous with the original image. ' +
+  'Do not isolate, cut out, or reposition the hands. The subject must remain embedded in the original scene. ' +
   'Do not change the size, proportions, or structure of the hands in any way. ' +
   'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
-  'Only enhance the surrounding environment — do not replace or remove the original scene. ' +
-  'Professional beauty photography. Gentle depth of field with soft background blur. ';
+  'CRITICAL: Do not replace, rebuild, or simplify the background. Retain all original background elements, shapes, and structure. ' +
+  'Only apply subtle visual enhancement and stylistic transformation to the existing environment. ' +
+  'Professional beauty photography. Gentle depth of field with soft, realistic background blur. ';
 
 /**
  * Hardcoded v1 styles. Stored in-memory for now — will migrate to MongoDB
- * via the Style schema once we need admin editing or A/B testing.
  */
 const V1_STYLES: StylePreset[] = [
   {
     styleId: 'marble',
     name: 'Marble Luxe',
-    description: 'Hands on marble, gold accents, soft light',
+    description: 'Marble-inspired luxury styling',
     promptTemplate:
       `${BASE_PROMPT}` +
-      'Add a luxurious marble surface beneath the existing hands without moving them, with subtle gold accents integrated naturally into the scene. ' +
+      'Subtly refine the existing surface and tones to resemble a luxurious marble aesthetic with soft white and grey veining, while preserving original shapes and perspective. ' +
+      'Introduce delicate gold-toned accents through lighting and colour grading only (no new objects). ' +
       'Lighting: soft diffused natural light from above. ' +
       'Style: luxurious, clean, editorial.',
     thumbnailUrl: '',
@@ -44,13 +45,12 @@ const V1_STYLES: StylePreset[] = [
   {
     styleId: 'salon-pro',
     name: 'Salon Studio',
-    description: 'Professional studio flat-lay, beauty products',
+    description: 'Clean studio lighting and polish',
     promptTemplate:
       `${BASE_PROMPT}` +
-      'Enhance the scene into a professional studio setting without moving the hands: add a clean white or dark surface beneath them. ' +
-      'Background should be softly out-of-focus and minimal. ' +
+      'Refine the existing environment to feel like a professional studio using lighting and tone adjustments only. ' +
+      'Simplify visual noise through soft blur and contrast, without removing objects. ' +
       'Lighting: controlled, even diffused studio lighting from above/front with soft shadows. ' +
-      'Keep composition intact, no cropping. ' +
       'Style: clinical, polished, high-end salon photography.',
     thumbnailUrl: '',
     sortOrder: 1,
@@ -59,14 +59,14 @@ const V1_STYLES: StylePreset[] = [
       return this.promptTemplate;
     },
   },
-
   {
     styleId: 'limewash',
     name: 'Limewash Neutral',
-    description: 'Textured plaster wall, soft neutral tones',
+    description: 'Soft neutral plaster aesthetic',
     promptTemplate:
       `${BASE_PROMPT}` +
-      'Enhance the environment with a matte plaster or stone surface beneath the hands and a soft limewash wall background in warm neutral tones, without moving the subject. ' +
+      'Gently transform the tones and texture of the existing background to resemble a soft limewash or plaster wall in warm neutral tones, without removing or replacing any elements. ' +
+      'Maintain all original structure while applying a matte, organic finish. ' +
       'Lighting: soft diffused natural light with gentle shadows. ' +
       'Style: modern, organic, high-end minimal.',
     thumbnailUrl: '',
@@ -79,11 +79,11 @@ const V1_STYLES: StylePreset[] = [
   {
     styleId: 'oak',
     name: 'Natural Oak',
-    description: 'Light wood grain, natural feel',
+    description: 'Warm natural wood tones',
     promptTemplate:
       `${BASE_PROMPT}` +
-      'Enhance the scene with a light ash wood surface beneath the hands with visible natural grain, keeping the original positioning unchanged. ' +
-      'Background: softly blurred natural wood panels. ' +
+      'Subtly adjust the surface and colour tones to resemble a light ash wood texture with natural grain, while preserving all original shapes and perspective. ' +
+      'Apply warm, natural colour grading to evoke a soft wood-toned environment without introducing new elements. ' +
       'Lighting: warm natural daylight from the side with soft shadows. ' +
       'Style: natural, clean, lifestyle.',
     thumbnailUrl: '',
