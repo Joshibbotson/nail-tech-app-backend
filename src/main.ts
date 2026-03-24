@@ -24,12 +24,12 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const port = config.get<number>('app.port', 3000);
 
-  app.enableCors({
-    origin: '*', // change this later
-    credentials: true,
-    methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'],
-  });
+  // app.enableCors({
+  //   origin: '*', // change this later
+  //   credentials: true,
+  //   methods: ['GET', 'PUT', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  //   allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'],
+  // });
 
   await app.listen(port);
   console.log(`NailGlow API running on port ${port}`);
