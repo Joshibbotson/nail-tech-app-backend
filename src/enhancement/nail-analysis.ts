@@ -134,17 +134,28 @@ export const STYLE_SCENE_OVERRIDES: Record<
  */
 export function buildEnhancementPrompt(modifiedJson: string): string {
   return `Change ONLY the background, surface, and lighting in this image to match the "scene" section of the JSON below. Do not modify the hands, nails, skin, or any other part of the subject.
-
+ 
 ${modifiedJson}`;
 }
 
 /**
  * Build the Pass 2 prompt for a custom background (two images).
+ * Uses the analysis to describe what must NOT change, and a direct
+ * instruction to replace the background with Image 2.
  */
-export function buildCustomBackgroundPrompt(modifiedJson: string): string {
-  return `Two images provided. Image 1 is the subject. Image 2 is the target background.
+export function buildCustomBackgroundPrompt(analysis: NailAnalysis): string {
+  const handDesc = `${analysis.hands.count} hand(s), ${analysis.hands.position}, skin tone: ${analysis.hands.skinTone}, visible: ${analysis.hands.visibleArea}`;
+  const nailDesc = `${analysis.nails.count} nails, shape: ${analysis.nails.shape}, length: ${analysis.nails.length}, colour: ${analysis.nails.colour.primary}, finish: ${analysis.nails.finish}, art: ${analysis.nails.art.style}`;
 
-Replace ONLY the background, surface, and lighting in Image 1 to match Image 2. Do not modify the hands, nails, skin, or any other part of the subject in Image 1.
-
-${modifiedJson}`;
+  return `Two images provided. Image 1 is a nail photograph. Image 2 is a background/surface.
+ 
+Replace the background and surface in Image 1 with the background and surface shown in Image 2. Place the hands naturally on Image 2's surface. Match the lighting and colour temperature of Image 2.
+ 
+DO NOT MODIFY THE SUBJECT FROM IMAGE 1:
+- Hands: ${handDesc}
+- Nails: ${nailDesc}
+- Do not change, add, remove, or reposition any hands, fingers, or nails
+- Do not alter nail colour, art, shape, or finish in any way
+ 
+The result should look like the hands from Image 1 were photographed on the surface in Image 2.`;
 }

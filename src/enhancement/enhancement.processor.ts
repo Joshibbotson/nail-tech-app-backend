@@ -92,21 +92,13 @@ export class EnhancementProcessor extends WorkerHost {
         const isCustomBackground = styleId.startsWith('custom:');
 
         if (isCustomBackground && backgroundImageUrl) {
-          const sceneOverride = {
-            background: 'Match the background from the second reference image',
-            surface: 'Match the surface from the second reference image',
-            lighting: 'Match the lighting from the second reference image',
-          };
-          this.logger.log(`═══ SCENE OVERRIDE (custom background) ═══`);
-          this.logger.log(JSON.stringify(sceneOverride, null, 2));
-
-          const modifiedJson = buildModifiedJson(analysis, sceneOverride);
-          this.logger.log(`═══ MODIFIED JSON (sent to fal.ai) ═══`);
-          this.logger.log(modifiedJson);
-          this.logger.log(`═══ END MODIFIED JSON ═══`);
+          this.logger.log(
+            `═══ CUSTOM BACKGROUND — using analysis for preservation ═══`,
+          );
+          this.logger.log(JSON.stringify(analysis, null, 2));
 
           imageUrls.push(backgroundImageUrl);
-          pass2Prompt = buildCustomBackgroundPrompt(modifiedJson);
+          pass2Prompt = buildCustomBackgroundPrompt(analysis);
         } else {
           const sceneOverride = STYLE_SCENE_OVERRIDES[styleId] || {};
           this.logger.log(`═══ SCENE OVERRIDE (style: ${styleId}) ═══`);
