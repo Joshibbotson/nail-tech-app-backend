@@ -7,6 +7,10 @@
 //
 // The model receives the SAME JSON it produced, with only the scene
 // changed. Everything else stays identical = everything else is preserved.
+//
+// IMPORTANT: Style presets describe aesthetic MOODS, not physical
+// environments. The model restyles the existing scene — it does not
+// reconstruct it. This prevents hand/body repositioning.
 // ═══════════════════════════════════════════════════════════════════
 
 export interface NailAnalysis {
@@ -51,7 +55,7 @@ export const ANALYSIS_PROMPT = `Describe this photograph as JSON. Return ONLY va
     "count": <1 or 2>,
     "position": "<exact hand position and pose>",
     "skinTone": "<skin tone description>",
-    "visibleArea": "<what parts are visible>",
+    "visibleArea": "<what parts are visible — include arms, wrists, body if any are in frame>",
     "jewellery": [<list of jewellery with locations>]
   },
   "nails": {
@@ -100,6 +104,10 @@ export function buildModifiedJson(
 
 /**
  * Scene overrides for each style preset.
+ *
+ * These describe aesthetic MOODS and colour grading, NOT physical
+ * environments. The word "Same surface" anchors the model to restyle
+ * what already exists rather than reconstructing the scene.
  */
 export const STYLE_SCENE_OVERRIDES: Record<
   string,
@@ -107,55 +115,81 @@ export const STYLE_SCENE_OVERRIDES: Record<
 > = {
   limewash: {
     background:
-      'Soft limewash plaster wall in warm neutral tones, subtly textured',
-    surface: 'Matte plaster or stone surface with organic imperfections',
-    lighting: 'Soft diffused natural light with gentle shadows',
+      'Warm neutral tones, soft plaster-like texture, muted and organic feel',
+    surface:
+      'Limestone surface with matte, warm-toned colour grading and subtle organic texture',
+    lighting: 'Soft diffused natural light, gentle shadows, warm tone',
   },
   oak: {
-    background: 'Light ash wood panel wall, softly blurred',
-    surface: 'Natural light ash wood grain surface, smooth and warm',
-    lighting: 'Warm natural daylight from the side, soft shadows',
+    background: 'Warm woody tones, soft and natural colour palette',
+    surface:
+      'Oak surface with warm natural wood-toned colour grading, smooth and inviting',
+    lighting: 'Warm natural side lighting, soft shadows',
   },
   marble: {
-    background: 'Soft blurred marble wall',
+    background: 'Elegant tones, clean and refined feel',
     surface:
-      'Polished white marble tray with subtle grey veining and gold accents',
-    lighting: 'Soft diffused natural light from above, warm tone',
+      'Marble surface with cool, polished colour grading and subtle contrast',
+    lighting: 'Soft diffused light from above, cool-to-neutral tone',
   },
   'salon-pro': {
-    background: 'Clean studio backdrop',
-    surface: 'White professional studio surface',
-    lighting: 'Bright diffused studio lighting, even and professional',
+    background: 'Clean, bright, neutral backdrop',
+    surface: 'White surface with bright, even, professional colour grading',
+    lighting:
+      'Bright diffused even lighting, minimal shadows, professional tone',
   },
 };
 
 /**
  * Build the Pass 2 prompt for style presets.
+ *
+ * Subject preservation rules come FIRST and are marked as highest
+ * priority. The task is framed as colour grading / restyling, NOT
+ * scene reconstruction.
  */
 export function buildEnhancementPrompt(modifiedJson: string): string {
-  return `Change ONLY the background, surface, and lighting in this image to match the "scene" section of the JSON below. Do not modify the hands, nails, skin, or any other part of the subject.
- 
+  return `CRITICAL PRESERVATION RULES (highest priority — these override ALL other instructions):
+- Do NOT move, reposition, resize, add, or remove any hands, fingers, arms, or any part of any human body
+- Do NOT alter any nail art, polish colour, nail shape, or finish
+- Do NOT remove, obscure, or crop any person or body part visible in the image
+- Every visible human element must remain in the EXACT same position, pose, scale, and crop
+- If a person or body part is partially visible in the background, it MUST remain exactly as-is
+
+TASK: Adjust ONLY the colour grading, tones, textures, and lighting of the background and surface to match the aesthetic described in the "scene" section below. The background geometry, composition, and all human body parts must stay the same — only the visual style and mood changes. Think of this as applying a colour grade and lighting filter, not replacing the scene.
+
 ${modifiedJson}`;
 }
 
 /**
  * Build the Pass 2 prompt for a custom background (two images).
- * Uses the analysis to describe what must NOT change, and a direct
- * instruction to replace the background with Image 2.
+ *
+ * Image 2 is used as a background BEHIND the subject — never as
+ * an overlay. The background adapts to fit the subject, not the
+ * other way around.
  */
 export function buildCustomBackgroundPrompt(analysis: NailAnalysis): string {
   const handDesc = `${analysis.hands.count} hand(s), ${analysis.hands.position}, skin tone: ${analysis.hands.skinTone}, visible: ${analysis.hands.visibleArea}`;
   const nailDesc = `${analysis.nails.count} nails, shape: ${analysis.nails.shape}, length: ${analysis.nails.length}, colour: ${analysis.nails.colour.primary}, finish: ${analysis.nails.finish}, art: ${analysis.nails.art.style}`;
 
-  return `Two images provided. Image 1 is a nail photograph. Image 2 is a background/surface.
- 
-Replace the background and surface in Image 1 with the background and surface shown in Image 2. Place the hands naturally on Image 2's surface. Match the lighting and colour temperature of Image 2.
- 
-DO NOT MODIFY THE SUBJECT FROM IMAGE 1:
+  return `Two images provided. Image 1 is a nail photograph. Image 2 is a background/surface reference.
+
+CRITICAL PRESERVATION RULES (highest priority — these override ALL other instructions):
+- The hands, arms, and any visible human body parts from Image 1 must remain EXACTLY as they are — same position, same pose, same scale, same crop
+- Do NOT move, reposition, resize, remove, or alter any part of any person
+- Do NOT alter any nail art, polish colour, nail shape, or finish
+- If a person's body is partially visible in Image 1, it MUST remain partially visible and unmodified in the output
+- The subject composition from Image 1 is LOCKED — nothing about it changes
+
+TASK: Composite the subject from Image 1 onto a background inspired by Image 2.
+- Use Image 2 as a background BEHIND and BENEATH the subject — never as an overlay
+- Adapt the background to fit around the subject, not the other way around
+- Scale, crop, or extend Image 2's background as needed to fit Image 1's composition
+- Match the lighting and colour temperature of Image 2 to create a natural composite
+- Smooth skin subtly and naturally
+
+SUBJECT REFERENCE (do not modify):
 - Hands: ${handDesc}
 - Nails: ${nailDesc}
-- Do not change, add, remove, or reposition any hands, fingers, or nails
-- Do not alter nail colour, art, shape, or finish in any way
- 
-The result should look like the hands from Image 1 were photographed on the surface in Image 2.`;
+
+The result should look like Image 1's subject was naturally photographed in Image 2's setting, with zero changes to the subject.`;
 }

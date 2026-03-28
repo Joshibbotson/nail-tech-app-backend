@@ -112,10 +112,28 @@ export class EnhancementProcessor extends WorkerHost {
           pass2Prompt = buildEnhancementPrompt(modifiedJson);
         }
       } else {
+        // Analysis failed — use the fallback prompt from the service
+        // but wrap it with preservation rules if not already present
         if (backgroundImageUrl) {
           imageUrls.push(backgroundImageUrl);
         }
-        pass2Prompt = prompt;
+
+        // The service-level prompt already includes preservation rules,
+        // but for style presets we add them here as a safety net
+        const isCustomBackground = styleId.startsWith('custom:');
+        if (!isCustomBackground) {
+          pass2Prompt =
+            'CRITICAL PRESERVATION RULES (highest priority): ' +
+            'Do NOT move, reposition, resize, add, or remove any hands, fingers, arms, or any part of any human body. ' +
+            'Do NOT alter any nail art, polish colour, nail shape, or finish. ' +
+            'Do NOT remove, obscure, or crop any person or body part visible in the image. ' +
+            'The subject must remain in the EXACT same position, pose, scale, and crop. ' +
+            'TASK: ' +
+            prompt;
+        } else {
+          pass2Prompt = prompt;
+        }
+
         this.logger.log(`═══ NO ANALYSIS — using fallback prompt ═══`);
       }
 

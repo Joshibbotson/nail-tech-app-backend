@@ -75,23 +75,20 @@ export class EnhancementService {
     let backgroundImageUrl: string | undefined;
 
     if (dto.backgroundId) {
-      // Custom background — use a generic prompt and pass the background as a reference image
+      // Custom background — strong subject-preservation fallback prompt
+      // (used only if Pass 1 analysis fails in the processor)
       prompt =
-        'Enhance this nail salon photograph for Instagram. ' +
-        'Use the second reference image as the background/surface setting. ' +
-        'Place the hands naturally in that environment. ' +
-        'Do not remove any human body parts' +
-        'Do not change the size of the hand or hands' +
-        'Smooth the skin subtly and naturally. ' +
-        'CRITICAL: preserve the exact nail art, polish colour, and nail shape with zero modifications. ' +
-        'Match the lighting and colour tone of the background. ' +
-        'Soft bokeh background. Professional beauty photography.';
+        'Two images provided. Image 1 is a nail photograph. Image 2 is a background reference. ' +
+        'CRITICAL: Do NOT move, reposition, resize, remove, or alter any hands, fingers, arms, or any human body part. ' +
+        'Do NOT alter nail art, polish colour, nail shape, or finish. ' +
+        'The subject must stay in the EXACT same position, pose, and scale. ' +
+        'If any person or body part is visible, it must remain exactly as-is. ' +
+        'Place Image 2 as a background BEHIND and BENEATH the subject — never as an overlay. ' +
+        'Adapt the background to fit around the subject, not the other way around. ' +
+        'Match lighting and colour temperature of Image 2. ' +
+        'Smooth skin subtly and naturally. Soft bokeh background.';
 
       // Fetch the background's S3 key and generate a signed URL
-      const { BackgroundService } =
-        await import('../background/background.service');
-      // We can't inject BackgroundService here due to circular deps,
-      // so we'll look up the background directly
       const bgDoc = await this.enhancementModel.db
         .collection('custombackgrounds')
         .findOne({
