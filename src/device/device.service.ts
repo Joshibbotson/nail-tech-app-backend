@@ -12,7 +12,7 @@ import { RegisterDeviceDto } from './dto/register-device.dto';
 @Injectable()
 export class DeviceService {
   private readonly logger = new Logger(DeviceService.name);
-  private readonly STARTING_TOKENS_AMOUNT = 3;
+  private readonly STARTING_TOKENS_AMOUNT = 1;
   constructor(
     @InjectModel(Device.name)
     private readonly deviceModel: Model<DeviceDocument>,
